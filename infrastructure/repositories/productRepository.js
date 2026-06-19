@@ -84,7 +84,7 @@ export class SequelizeProductRepository extends IProductRepository {
                 throw new Error('Must of of type Product', product);
             }
             const productData = product.toPersistenceObject();
-            const productExist = await this.productModel.findByPk(product.productId, { transaction: t });
+            const productExist = await this.productModel.findByPk(product.productId, { transaction: t, lock: t.LOCK.UPDATE });
             if (productExist) {
                 await this.productModel.update(productData, { where: { pid: product.productId }, transaction: t });
             } else {
@@ -97,6 +97,7 @@ export class SequelizeProductRepository extends IProductRepository {
                     },
                     include: this.variantAttributeModel,
                     transaction: t,
+                    lock: t.LOCK.UPDATE,
                 });
                 // const incomingVariantsIds = new Set(product.varaints.map((v) => v.varaintId));
                 // const existingDBVariantsIds = new Set(existingDBVariants.map((v) => v.toJSON().variantId));

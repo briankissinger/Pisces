@@ -27,6 +27,7 @@ import variantattribute from './variantattribute.js'
 import warehouse from './warehouse.js'
 import paymentmethodchannels from './paymentmethodchannels.js'
 import idempotencycache from './idempotencycache.js'
+import stockmovement from './stockmovement.js'
 
 const env = process.env.NODE_ENV || 'development'
 
@@ -69,6 +70,7 @@ const models = {
   Warehouse: warehouse(sequelize, DataTypes),
   PaymentMethodChannel: paymentmethodchannels(sequelize, DataTypes),
   IdempotencyCache: idempotencycache(sequelize, DataTypes),
+  StockMovement: stockmovement(sequelize, DataTypes),
 }
 
 Object.values(models).forEach((model) => {

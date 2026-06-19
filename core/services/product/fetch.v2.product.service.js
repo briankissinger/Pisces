@@ -134,7 +134,7 @@ export class FetchV2ProductService {
                     name: variant.name,
                     price: variant.price,
                     quantity: variant.quantity,
-                    isAvailable: variant.quantity > 1,
+                    isAvailable: variant.quantity > 0,
                     attributes: simplifiedAttributes,
                     saleInfo: determineSaleInfo(variant, rawProduct.ProductDiscounts),
                 };

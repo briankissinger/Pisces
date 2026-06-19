@@ -1,24 +1,25 @@
-import { Idempotency } from "../../entities/idempotency.js";
-import { ValidateObjectPayload } from "../../validation/validate.object.payload.js";
+import { Idempotency } from '../../entities/idempotency.js';
+import { ValidateObjectPayload } from '../../validation/validate.object.payload.js';
 
 export class InitiatePaymentRequestService {
-    constructor(CartRepository, paymentRequestRepository, paymentGateway, idempotencyRespository) {
+    constructor(cartRepository, paymentRequestRepository, paymentGateway, idempotencyRespository, inventoryService) {
         this.paymentRequestRepository = paymentRequestRepository;
         this.paymentGateway = paymentGateway;
-        this.cartRepository = CartRepository;
+        this.cartRepository = cartRepository;
         this.idempotencyRepository = idempotencyRespository;
+        this.inventoryService = inventoryService;
         this.initiatePaymentRequest = this.initiatePaymentRequest.bind(this);
     }
     async initiatePaymentRequest(userId, provider, idempotencyKey, payload) {
         try {
             if (!provider || !idempotencyKey || !payload) {
-                return { success: false, error: "Missing Provider or Valid idempotency key or Invalid payload!" };
+                return { success: false, error: 'Missing Provider or Valid idempotency key or Invalid payload!' };
             }
             if (typeof payload !== 'object') {
-                return { success: false, error: "Object expected!" };
+                return { success: false, error: 'Object expected!' };
             }
             if (Object.keys(payload).length === 0) {
-                return { success: false, error: "Invalid payload!" };
+                return { success: false, error: 'Invalid payload!' };
             }
 
             // Idempotency check
@@ -27,13 +28,13 @@ export class InitiatePaymentRequestService {
                 switch (trans.status) {
                     case 'Completed': {
                         return { success: false, error: 'Payment already processed. Please contact administrator for assistance.', data: { checkoutId: idempotencyKey } };
-                    };
+                    }
                     case 'Pending': {
                         const tenMinutesSinceInitiated = Date.now() - new Date(trans.createdAt).getTime();
                         if (tenMinutesSinceInitiated < (10 * 60 * 1000)) {
-                            return { success: false, error: 'You have a similar transaction currently in progress.', data: { checkoutId: idempotencyKey } }
+                            return { success: false, error: 'You have a similar transaction currently in progress.', data: { checkoutId: idempotencyKey } };
                         }
-                    };
+                    }
                 }
             }
             await this.idempotencyRepository.save(new Idempotency(idempotencyKey, 'Pending'));
@@ -42,12 +43,25 @@ export class InitiatePaymentRequestService {
             const cart = await this.cartRepository.getUserCart(userId, 'fetch', true);
             console.log('logged cart', cart);
             if (!cart) {
-
+                return { success: false, error: 'Cart not found' };
             }
+
+            // Validate stock before proceeding with payment
+            if (this.inventoryService) {
+                const stockValidation = await this.inventoryService.validateCartItemsStock(cart.data || cart);
+                if (!stockValidation.success) {
+                    return {
+                        success: false,
+                        error: 'Some items in your cart are out of stock or have insufficient quantity',
+                        failures: stockValidation.failures,
+                    };
+                }
+            }
+
             const paymentProvider = this.paymentGateway(provider);
-            
+
             new ValidateObjectPayload(payload);
-            const { success, transaction, error } = await this.paymentGateway.NIPush(payload);
+            const { success, transaction, error } = await paymentProvider.NIPush(payload);
             if (!success) {
                 return { success, error };
             }
@@ -56,15 +70,15 @@ export class InitiatePaymentRequestService {
             }
             const transBody = {
                 transId: transaction.transId,
-                phoneNumber: rest.phoneNumber,
-                amount: rest.amount,
+                phoneNumber: payload.phoneNumber,
+                amount: payload.amount,
                 status: 'Pending',
                 checkoutRequestID: transaction.CheckoutRequestID,
                 merchantRequestID: transaction.MerchantRequestID,
                 transactionMessage: transaction.ResponseDescription,
-                checkoutId: checkoutId,
+                checkoutId: idempotencyKey,
                 paymentMethod: 'Mpesa',
-            }
+            };
             const { success: isNotfailed, data, error: err } = await this.paymentRequestRepository.create(transBody);
             if (!isNotfailed) {
                 return { success: isNotfailed, error: err };

@@ -1,5 +1,8 @@
 import express from "express";
+import { sequelize, models } from "../data/integrations/database/models/index.js";
 import { SequilizeCartRepository } from "../data/interfaces/sequilize.cart.repository.js";
+import { SequelizeInventoryRepository } from "../infrastructure/repositories/inventoryRepository.js";
+import { InventoryService } from "../core/services/inventory/inventory.service.js";
 import { CreateCartController } from "../app/controllers/cart/create.cart.js";
 import { CreateCartService } from "../core/services/cart/create.cart.service.js";
 import { FetchCartController } from "../app/controllers/cart/fetch.cart.js";
@@ -9,14 +12,18 @@ import { UpdateCartService } from "../core/services/cart/update.cart.service.js"
 import { DeleteCartController } from "../app/controllers/cart/delete.cart.js";
 import { DeleteCartService } from "../core/services/cart/delete.cart.service.js";
 import { validateUserToken } from "../app/middleware/validate.token.js";
-import { models } from "../data/integrations/database/models/index.js";
 
-const { Cart, CartItem } = models;
+const { Cart, CartItem, ProductVariant, StockMovement } = models;
 
 const cartRoutes = express.Router();
-// CREATE CART ITEM
+
+// Repositories
 const cartRepository = new SequilizeCartRepository(Cart, CartItem);
-const createCartService = new CreateCartService(cartRepository);
+const inventoryRepository = new SequelizeInventoryRepository(sequelize, ProductVariant, StockMovement);
+const inventoryService = new InventoryService(inventoryRepository);
+
+// CREATE CART ITEM
+const createCartService = new CreateCartService(cartRepository, inventoryService);
 const createCartController = new CreateCartController(createCartService);
 
 // FETCH CART ITEM

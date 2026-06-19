@@ -3,7 +3,7 @@ import { Product } from "./product.js";
 
 export class Variant {
     constructor(variantId, productId, name, sku, price, quantity, attributes = []) {
-        if (!variantId || !this.checkIfValidIntOrFloat(price) || !this.ensureNonZero(price) || !this.checkIfValidIntOrFloat(quantity) || !this.ensureNonZero(quantity)) {
+        if (!variantId || !this.checkIfValidIntOrFloat(price) || !this.ensureNonNegative(price) || !this.checkIfValidIntOrFloat(quantity) || !this.ensureNonNegative(quantity)) {
             throw new Error('Invalid product variant');
         }
         this.variantId = variantId;
@@ -53,8 +53,8 @@ export class Variant {
         const reg = /^[+-]?\d+(\.\d+)?$/;
         return reg.test(input);
     }
-    ensureNonZero(value) {
-        return Number(value) > 0;
+    ensureNonNegative(value) {
+        return Number(value) >= 0;
     }
     toPersistenceObject() {
         return {
